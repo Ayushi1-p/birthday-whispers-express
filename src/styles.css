@@ -375,7 +375,8 @@
 .confetti-4 { border-radius: 50%; background: var(--accent); }
 
 @media (max-width: 767px) {
-  .intro-scene { min-height: auto; padding-top: 2.5rem; padding-bottom: 6rem; }
+  .intro-scene { min-height: 100svh; padding-top: 1.25rem; padding-bottom: 2.5rem; }
+  .intro-scene > div:first-of-type { gap: 0.5rem; }
   .polaroid { width: min(88%, 22rem); margin-inline: auto; }
   .polaroid-2 { transform: rotate(2deg); }
   .photo-placeholder { min-height: 13rem; }

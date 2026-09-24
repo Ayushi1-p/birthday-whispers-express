@@ -134,12 +134,12 @@ export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean
       <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="order-2 text-center lg:order-1 lg:text-left">
           <span className="eyebrow">A little birthday magic</span>
-          <h1 className="mt-5 font-display text-5xl leading-[1.03] sm:text-6xl lg:text-7xl">
+          <h1 className="mt-4 font-display text-5xl leading-[1.03] sm:mt-5 sm:text-6xl lg:text-7xl">
             Happy Birthday,<br /><span className="text-primary">{birthdayContent.friendName}</span> 🎂
           </h1>
-          <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground lg:mx-0">Someone made a little surprise for you...</p>
-          <p className="mt-8 font-hand text-2xl text-accent-foreground">Make a wish and blow the candles ✨</p>
-          <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
+          <p className="mx-auto mt-4 max-w-lg text-base text-muted-foreground sm:mt-6 sm:text-lg lg:mx-0">Someone made a little surprise for you...</p>
+          <p className="mt-5 font-hand text-2xl text-accent-foreground sm:mt-8">Make a wish and blow the candles ✨</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3 sm:mt-7 lg:justify-start">
             <Button size="lg" onClick={onCelebrate} disabled={candlesOut} className="h-12 rounded-full px-6 shadow-celebration">
               <Sparkles /> {candlesOut ? "Wish made!" : "Blow the candles"}
             </Button>
@@ -157,7 +157,7 @@ export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean
           aria-label="Blow out the birthday candles"
           animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
           transition={{ duration: 4.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-          className="character-button order-1 relative mx-auto block w-full max-w-[420px] cursor-pointer lg:order-2 lg:max-w-[540px]"
+          className="character-button order-1 relative mx-auto block w-full max-w-[290px] cursor-pointer sm:max-w-[420px] lg:order-2 lg:max-w-[540px]"
         >
           <img src={characterUnlit} width={1024} height={1024} alt="A cheerful friend holding a birthday cake" className="w-full drop-shadow-character" />
           <AnimatePresence>
