@@ -19,6 +19,9 @@
  */
 
 @theme inline {
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Fraunces", serif;
+  --font-hand: "Caveat", cursive;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -59,29 +62,41 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-peach: var(--peach);
+  --color-lavender: var(--lavender);
+  --color-powder: var(--powder);
+  --color-paper: var(--paper);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-celebration: var(--shadow-celebration);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 0.75rem;
+  --background: oklch(0.975 0.014 82);
+  --foreground: oklch(0.29 0.035 45);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.61 0.105 293);
+  --primary-foreground: oklch(0.99 0.008 85);
+  --secondary: oklch(0.93 0.035 255);
+  --secondary-foreground: oklch(0.36 0.06 265);
+  --muted: oklch(0.94 0.02 78);
+  --muted-foreground: oklch(0.51 0.035 45);
+  --accent: oklch(0.91 0.055 52);
+  --accent-foreground: oklch(0.39 0.055 40);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.86 0.025 70);
+  --input: oklch(0.88 0.023 70);
+  --ring: oklch(0.61 0.105 293);
+  --peach: oklch(0.86 0.08 53);
+  --lavender: oklch(0.83 0.075 296);
+  --powder: oklch(0.86 0.055 242);
+  --paper: oklch(0.985 0.012 83);
+  --shadow-soft: 0 20px 60px color-mix(in oklab, var(--foreground) 12%, transparent);
+  --shadow-celebration: 0 15px 45px color-mix(in oklab, var(--primary) 35%, transparent);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
