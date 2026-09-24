@@ -155,7 +155,7 @@ export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean
           type="button"
           onClick={onCelebrate}
           aria-label="Blow out the birthday candles"
-          animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
+          animate={reduceMotion ? false : { y: [0, -10, 0] }}
           transition={{ duration: 4.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
           className="character-button order-1 relative mx-auto block w-full max-w-[290px] cursor-pointer sm:max-w-[420px] lg:order-2 lg:max-w-[540px]"
         >
