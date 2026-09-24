@@ -2,8 +2,8 @@
 // Photos live in /public/images/ (photo1.jpg ... photo4.jpg).
 // Don't use the " character inside the text; use ' instead. \n\n starts a new paragraph.
 export const birthdayContent = {
-  friendName: "[FRIEND NAME]",
-  yourName: "[YOUR NAME]",
+  friendName: "[SANDEEP]",
+  yourName: "[AYUSHI]",
   letters: [
     {
       title: "Open Me",
@@ -13,7 +13,7 @@ export const birthdayContent = {
     {
       title: "One More",
       icon: "✨",
-      body: "Happiest birthday! 🎂\n\nJyada kuch hua nahi, bas yahi ho paya... but it's made with a lot of love.",
+      body: "Happiest birthday Sandeep! 🎂\n\nJyada kuch hua nahi, bas yahi ho paya... but it's made with a lot of love.",
     },
     {
       title: "For You",
