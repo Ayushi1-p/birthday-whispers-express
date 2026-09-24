@@ -14,15 +14,20 @@ const particles = Array.from({ length: 22 }, (_, index) => ({
   left: `${(index * 41 + 7) % 100}%`,
   top: `${(index * 29 + 11) % 94}%`,
   delay: (index % 7) * 0.35,
-  symbol: index % 4 === 0 ? "♡" : index % 3 === 0 ? "✦" : "·",
+  symbol: index % 4 === 0 ? "✧" : index % 3 === 0 ? "✦" : "·",
 }));
+
+let chimeContext: AudioContext | null = null;
 
 function playChime(type: "blow" | "open" | "final") {
   if (typeof window === "undefined") return;
   const AudioContextClass = window.AudioContext ??
     (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) return;
-  const context = new AudioContextClass();
+  // Reuse one audio context: browsers cap how many can exist at once.
+  chimeContext ??= new AudioContextClass();
+  const context = chimeContext;
+  if (context.state === "suspended") void context.resume();
   const notes = type === "blow" ? [523, 659, 784] : type === "final" ? [392, 523, 659, 784] : [659, 784];
   notes.forEach((frequency, index) => {
     const oscillator = context.createOscillator();
@@ -96,38 +101,71 @@ export function BirthdayExperience() {
 
 export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean; onCelebrate: () => void }) {
   const reduceMotion = useReducedMotion();
-  const [listening, setListening] = useState(false);
+  const [micState, setMicState] = useState<"idle" | "listening" | "denied" | "timeout">("idle");
+  const stopMic = useRef<(() => void) | null>(null);
+
+  // release the microphone if the candles were tapped instead, or on unmount
+  useEffect(() => {
+    if (candlesOut) stopMic.current?.();
+  }, [candlesOut]);
+  useEffect(() => () => stopMic.current?.(), []);
+
   const listen = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setListening(true);
-      const context = new AudioContext();
-      const analyser = context.createAnalyser();
-      const source = context.createMediaStreamSource(stream);
-      const values = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-      const started = Date.now();
-      const check = () => {
-        analyser.getByteFrequencyData(values);
-        const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-        if (average > 42) {
-          stream.getTracks().forEach((track) => track.stop());
-          void context.close();
-          setListening(false);
-          onCelebrate();
-        } else if (Date.now() - started < 8000) requestAnimationFrame(check);
-        else {
-          stream.getTracks().forEach((track) => track.stop());
-          void context.close();
-          setListening(false);
-        }
-      };
-      check();
-    } catch {
-      setListening(false);
+    if (stopMic.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicState("denied");
+      return;
     }
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+    } catch {
+      setMicState("denied");
+      return;
+    }
+    setMicState("listening");
+    const context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 1024;
+    context.createMediaStreamSource(stream).connect(analyser);
+    const samples = new Uint8Array(analyser.fftSize);
+    const started = Date.now();
+    let loudFrames = 0;
+    let frame = 0;
+
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      stream.getTracks().forEach((track) => track.stop());
+      void context.close();
+      stopMic.current = null;
+    };
+    stopMic.current = stop;
+
+    const check = () => {
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (const value of samples) sum += ((value - 128) / 128) ** 2;
+      const loudness = Math.sqrt(sum / samples.length);
+      // blowing = loud and sustained (~¼ second), so a single word or clap won't count
+      loudFrames = loudness > 0.12 ? loudFrames + 1 : Math.max(0, loudFrames - 2);
+      if (loudFrames > 14) {
+        stop();
+        setMicState("idle");
+        onCelebrate();
+      } else if (Date.now() - started < 12000) {
+        frame = requestAnimationFrame(check);
+      } else {
+        stop();
+        setMicState("timeout");
+      }
+    };
+    frame = requestAnimationFrame(check);
   };
+
+  const micLabel =
+    micState === "listening" ? "Listening... blow now!" : micState === "timeout" ? "Try the microphone again" : "Use microphone";
 
   return (
     <section className="intro-scene relative flex min-h-[100svh] items-center px-5 py-12 sm:px-8">
@@ -138,17 +176,37 @@ export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean
             Happy Birthday,<br /><span className="text-primary">{birthdayContent.friendName}</span> 🎂
           </h1>
           <p className="mx-auto mt-4 max-w-lg text-base text-muted-foreground sm:mt-6 sm:text-lg lg:mx-0">Someone made a little surprise for you...</p>
-          <p className="mt-5 font-hand text-2xl text-accent-foreground sm:mt-8">Make a wish and blow the candles ✨</p>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={candlesOut ? "wished" : "wish"}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mt-5 font-hand text-2xl text-accent-foreground sm:mt-8"
+            >
+              {candlesOut ? "Wish made? ✨" : "Make a wish and blow the candles ✨"}
+            </motion.p>
+          </AnimatePresence>
           <div className="mt-5 flex flex-wrap justify-center gap-3 sm:mt-7 lg:justify-start">
             <Button size="lg" onClick={onCelebrate} disabled={candlesOut} className="h-12 rounded-full px-6 shadow-celebration">
               <Sparkles /> {candlesOut ? "Wish made!" : "Blow the candles"}
             </Button>
-            {!candlesOut && (
+            {!candlesOut && micState !== "denied" && (
               <Button size="lg" variant="outline" onClick={listen} className="h-12 rounded-full px-6 backdrop-blur-sm">
-                <Volume2 /> {listening ? "Listening... blow now!" : "Use microphone"}
+                <Volume2 /> {micLabel}
               </Button>
             )}
           </div>
+          {!candlesOut && micState === "denied" && (
+            <p role="status" className="mt-3 text-sm text-muted-foreground">
+              The microphone isn't available here, so tap the candles instead ✨
+            </p>
+          )}
+          {!candlesOut && micState === "timeout" && (
+            <p role="status" className="mt-3 text-sm text-muted-foreground">
+              Didn't catch that. Blow a little harder, or just tap the candles.
+            </p>
+          )}
         </motion.div>
 
         <motion.button
@@ -170,16 +228,42 @@ export function BirthdayIntro({ candlesOut, onCelebrate }: { candlesOut: boolean
   );
 }
 
+// Wick tips in the illustration, as % of the image (measured from birthday-friend-cake-unlit.png)
+const WICKS = [
+  { left: 52.4, top: 22.4 },
+  { left: 54.9, top: 21.6 },
+  { left: 57.2, top: 21.1 },
+  { left: 59.6, top: 21.55 },
+  { left: 62.2, top: 21.55 },
+];
+
 function CandleFlames() {
-  const positions = [44.8, 50.5, 55.7, 61.2, 67.1];
-  return <>{positions.map((left, index) => (
-    <motion.span key={left} exit={{ scale: 0, opacity: 0, y: -15 }} className="candle-flame" style={{ left: `${left}%`, top: `${21.3 + Math.abs(2 - index) * 0.25}%` }} />
-  ))}</>;
+  return (
+    <>
+      <motion.span
+        key="glow"
+        className="candle-glow"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: 0.8 } }}
+      />
+      {WICKS.map((wick, index) => (
+        <motion.span
+          key={wick.left}
+          className="candle-flame"
+          style={{ left: `${wick.left}%`, top: `${wick.top}%`, x: "-50%", y: "-100%", transformOrigin: "50% 100%" }}
+          exit={{ scale: 0, opacity: 0, transition: { duration: 0.35, delay: index * 0.07 } }}
+        >
+          <span style={{ animationDelay: `${index * -0.23}s` }} />
+        </motion.span>
+      ))}
+    </>
+  );
 }
 
 export function LetterCard({ letter, index, onOpen }: { letter: Letter; index: number; onOpen: () => void }) {
   return (
-    <motion.button type="button" onClick={onOpen} whileHover={{ y: -8, rotate: index === 1 ? 0 : index === 0 ? -1 : 1 }} whileTap={{ scale: 0.98 }} className="letter-envelope group text-left">
+    <motion.button type="button" onClick={onOpen} style={{ rotate: [-1.5, 1, -0.8][index % 3] ?? 0 }} whileHover={{ y: -8, rotate: 0 }} whileTap={{ scale: 0.98 }} className="letter-envelope group text-left">
       <div className="envelope-flap" />
       <div className="relative z-10 flex min-h-60 flex-col justify-end p-7">
         <span className="mb-auto text-3xl">{letter.icon}</span>
@@ -195,8 +279,8 @@ export function LetterModal({ letter, onClose }: { letter: Letter | null; onClos
     <ModalFrame open={Boolean(letter)} onClose={onClose} label="Close letter">
       {letter && <motion.article initial={{ rotateX: -12, y: 30, opacity: 0 }} animate={{ rotateX: 0, y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} className="paper-letter">
         <Mail className="mx-auto text-primary" />
-        <p className="mt-7 font-hand text-3xl leading-relaxed text-foreground">{letter.body}</p>
-        <div className="mt-10 text-center text-xl text-primary">♡</div>
+        <p className="mt-7 whitespace-pre-line font-hand text-3xl leading-relaxed text-foreground">{letter.body}</p>
+        <div className="mt-10 text-center text-xl text-primary">✦</div>
       </motion.article>}
     </ModalFrame>
   );
@@ -206,11 +290,11 @@ export function MemoryGallery({ onSelect }: { onSelect: (memory: Memory) => void
   return (
     <section className="memory-surface px-5 py-24 sm:px-8 sm:py-32">
       <div className="mx-auto max-w-6xl">
-        <SectionHeading eyebrow="Keep these close" title="Three little memories 📸" subtitle="Because some moments deserve their own little place." />
-        <div className="mt-16 grid gap-10 md:grid-cols-3 md:gap-6">
+        <SectionHeading eyebrow="Keep these close" title="Our little memories 📸" subtitle="Because some moments deserve their own little place." />
+        <div className="mt-16 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
           {birthdayContent.memories.map((memory, index) => (
-            <motion.button key={memory.label} type="button" onClick={() => onSelect(memory)} whileHover={{ y: -10, rotate: 0 }} whileTap={{ scale: 0.98 }} className={`polaroid polaroid-${index + 1}`}>
-              <div className="photo-placeholder"><Camera /><span>{memory.label}</span><small>Replace image in birthday-data</small></div>
+            <motion.button key={memory.label} type="button" onClick={() => onSelect(memory)} style={{ rotate: POLAROID_TILT[index % 3] ?? 0, y: index === 1 ? -12 : 0 }} whileHover={{ y: -10, rotate: 0 }} whileTap={{ scale: 0.98 }} className="polaroid">
+              <MemoryPhoto memory={memory} className="polaroid-photo" />
               <p className="font-hand text-2xl">{memory.caption}</p>
             </motion.button>
           ))}
@@ -220,11 +304,22 @@ export function MemoryGallery({ onSelect }: { onSelect: (memory: Memory) => void
   );
 }
 
+const POLAROID_TILT = [-3, 2, -1.5];
+
+// Shows the photo from birthday-data; falls back to the pastel placeholder if the file is missing.
+function MemoryPhoto({ memory, className }: { memory: Memory; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!memory.image || failed) {
+    return <div className="photo-placeholder"><Camera /><span>{memory.label}</span><small>Add {memory.image || "a photo"} in /public</small></div>;
+  }
+  return <img src={memory.image} alt={memory.caption} onError={() => setFailed(true)} className={className} draggable={false} />;
+}
+
 export function PhotoModal({ memory, onClose }: { memory: Memory | null; onClose: () => void }) {
   return (
     <ModalFrame open={Boolean(memory)} onClose={onClose} label="Close memory">
-      {memory && <motion.article layoutId={memory.label} initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="memory-modal">
-        <div className="photo-placeholder aspect-[4/3]"><Camera /><span>{memory.label}</span></div>
+      {memory && <motion.article initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0 }} transition={{ type: "spring", damping: 22, stiffness: 180 }} className="memory-modal">
+        <MemoryPhoto memory={memory} className="memory-modal-photo" />
         <h3 className="mt-6 font-hand text-3xl">{memory.caption}</h3>
         <p className="mt-3 text-lg leading-relaxed text-muted-foreground">{memory.message}</p>
       </motion.article>}
@@ -253,7 +348,7 @@ function FinalLetterModal({ open, onClose }: { open: boolean; onClose: () => voi
       <motion.article initial={{ scale: 0.72, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: "spring", damping: 22 }} className="paper-letter final-letter">
         <div className="text-center text-2xl">✦</div>
         <h2 className="mt-5 text-center font-display text-4xl">To {birthdayContent.friendName} ❤️</h2>
-        <p className="mt-8 font-hand text-2xl leading-relaxed sm:text-3xl">{birthdayContent.finalLetter}</p>
+        <p className="mt-8 whitespace-pre-line font-hand text-2xl leading-relaxed sm:text-3xl">{birthdayContent.finalLetter}</p>
         <p className="mt-10 text-center font-display text-2xl">Happy Birthday once again! 🎂✨</p>
         <p className="mt-5 text-right font-hand text-2xl">— {birthdayContent.yourName}</p>
       </motion.article>
